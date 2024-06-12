@@ -170,6 +170,18 @@ def SWBSA_Analytics(swbsa):
     st.dataframe(final.style.applymap(Style_Negative_And_Positive_Values, subset=['Share Delta']).format("{:.2f}"), use_container_width=True)
     st.toast('Looking into SWBSA... COMPLETE')
 
+
+
+
+
+
+
+
+
+
+def Inventory_Analytics(inventory): #TODO
+    return
+
     
 
 
@@ -178,10 +190,14 @@ def SWBSA_Analytics(swbsa):
 
 
 
-    
+
 if files['Export_ExportRentalsByDay.csv'] is not None:
-    
     swbsa = pd.read_csv(uploaded_files[files['Export_ExportRentalsByDay.csv']], index_col=False)
-    
     with st.expander('**SWBSA Market Share Analysis**'):
         SWBSA_Analytics(swbsa)
+
+
+if files['Inventory Adjustments.xlsx'] is not None:
+    inventory = pd.read_csv(uploaded_files[files['Inventory Adjustments.xlsx']], index_col=False)
+    with st.expander('**Inventory Analysis**'):
+        Inventory_Analytics(inventory)
