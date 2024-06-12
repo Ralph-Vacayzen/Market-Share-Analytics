@@ -2,6 +2,36 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+
+
+
+
+
+
+
+
+
+def Style_Uploaded_And_Nonuploaded_Files(filename):
+        color = '#C1E1C1' if filename not in missing else '#FAA0A0'
+        return f'background-color: {color}'
+    
+def Get_Dates_From_Range(row):
+        dates = pd.date_range(row.RentalAgreementStartDate, row.RentalAgreementEndDate, normalize=True).values
+        return set(map(lambda x: pd.to_datetime(x).date(), dates))
+
+def Style_Negative_And_Positive_Values(value):
+    color = '#C1E1C1' if value >= 0 else '#FAA0A0'
+    return f'background-color: {color}'
+
+
+
+
+
+
+
+
+
+
 st.set_page_config(page_title='Market-share Analytics', page_icon='📊', layout="wide", initial_sidebar_state="auto", menu_items=None)
 
 
@@ -38,14 +68,16 @@ ranges   = [p1_dates, p2_dates]
 
 
 
-with st.expander('Uploaded Files'):
+with st.expander('Uploaded Files', expanded=True):
     
     file_descriptions = [
-        ['SWBSA Market Share Analysis', 'Export_ExportRentalsByDay.csv','An SWBSA integraRental export, Rentals By Day.']
+        ['SWBSA Market Share Analysis','Export_ExportRentalsByDay.csv','An SWBSA integraRental export, Rentals By Day.'],
+        ['Inventory Analysis','Inventory Adjustments.xlsx','An integraSoft database export, Inventory Adjustments.']
     ]
 
     files = {
-        'Export_ExportRentalsByDay.csv': None
+        'Export_ExportRentalsByDay.csv': None,
+        'Inventory Adjustments.xlsx': None
     }
 
 
@@ -55,23 +87,24 @@ with st.expander('Uploaded Files'):
     )
 
     st.info('File names are **case sensitive** and **must be identical** to the file name below.')
-    st.dataframe(pd.DataFrame(file_descriptions, columns=['Area of Interest','Required File','File Source Location']), hide_index=True, use_container_width=True)
 
+    missing = []
 
+    if len(uploaded_files) > 0:
+        for index, file in enumerate(uploaded_files):
+            files[file.name] = index
 
+        hasAllRequiredFiles = True
 
-
-
-
-
-
-def Get_Dates_From_Range(row):
-        dates = pd.date_range(row.RentalAgreementStartDate, row.RentalAgreementEndDate, normalize=True).values
-        return set(map(lambda x: pd.to_datetime(x).date(), dates))
-
-def Style_Negative_And_Positive_Values(value):
-    color = '#50C878' if value >= 0 else '#DE3163'
-    return f'background-color: {color}'
+        for file in files:
+            if files[file] == None:
+                hasAllRequiredFiles = False
+                missing.append(file)
+    
+    if missing != []:
+        st.dataframe(pd.DataFrame(file_descriptions, columns=['Area of Interest','Required File','File Source Location']).style.applymap(Style_Uploaded_And_Nonuploaded_Files, subset=['Required File']), hide_index=True, use_container_width=True)
+    else:
+        st.dataframe(pd.DataFrame(file_descriptions, columns=['Area of Interest','Required File','File Source Location']), hide_index=True, use_container_width=True)
 
 
 
@@ -83,7 +116,7 @@ def Style_Negative_And_Positive_Values(value):
 
 
 def SWBSA_Analytics(swbsa):
-    st.subheader('SWBSA Market Share Analysis')
+    st.toast('Looking into SWBSA...')
     swbsa.RentalAgreementStartDate = pd.to_datetime(swbsa.RentalAgreementStartDate).dt.date
     swbsa.RentalAgreementEndDate   = pd.to_datetime(swbsa.RentalAgreementEndDate).dt.date
 
@@ -92,6 +125,7 @@ def SWBSA_Analytics(swbsa):
     results = []
 
     for i, range in enumerate(ranges, 1):
+        st.toast(f'Looking into SWBSA... Period {i}...')
 
         market   = []
         vacayzen = []
@@ -125,7 +159,7 @@ def SWBSA_Analytics(swbsa):
 
         results.append(result)
     
-    final = pd.concat(results, axis=1).fillna(0)
+    final                = pd.concat(results, axis=1).fillna(0)
     final['Share Delta'] = final['Period 1: Share'] - final['Period 2: Share']
 
     l, m, r = st.columns(3)
@@ -134,6 +168,7 @@ def SWBSA_Analytics(swbsa):
     r.metric('**Vacayzen Market Share**', f'{round(np.average(final['Period 1: Share']), 2)}%', f'{round(np.average(final['Period 1: Share']) - np.average(final['Period 2: Share']), 2)}%')
 
     st.dataframe(final.style.applymap(Style_Negative_And_Positive_Values, subset=['Share Delta']).format("{:.2f}"), use_container_width=True)
+    st.toast('Looking into SWBSA... COMPLETE')
 
     
 
@@ -141,45 +176,12 @@ def SWBSA_Analytics(swbsa):
 
 
 
-    # for date in p1_dates:
 
-    #     datesets = swbsa[[date.date() in d for d in swbsa.Dates]]
-    #     datesets = datesets.rename(columns={'Description':'Beach Access', 'Quantity':str(date.date())})
-    #     datesets = datesets[datesets.RentalCompanyName == 'VACAYZEN']
-            
-    #     result = datesets.groupby('Beach Access', group_keys=True)[str(date.date())].apply(sum)
-
-    #     results.append(result)
-    
-    # final = pd.concat(results, axis=1)
-
-
-    # st.dataframe(final, use_container_width=True)
 
     
-
-
-
-
-
-if len(uploaded_files) > 0:
-    for index, file in enumerate(uploaded_files):
-        files[file.name] = index
-
-    hasAllRequiredFiles = True
-    missing = []
-
-    for file in files:
-        if files[file] == None:
-            hasAllRequiredFiles = False
-            missing.append(file)
-
-if len(uploaded_files) > 0 and not hasAllRequiredFiles:
-    for item in missing:
-        st.warning('**' + item + '** is missing and required.')    
-
-
-elif len(uploaded_files) > 0 and hasAllRequiredFiles:
+if files['Export_ExportRentalsByDay.csv'] is not None:
+    
     swbsa = pd.read_csv(uploaded_files[files['Export_ExportRentalsByDay.csv']], index_col=False)
-
-    SWBSA_Analytics(swbsa)
+    
+    with st.expander('**SWBSA Market Share Analysis**'):
+        SWBSA_Analytics(swbsa)
