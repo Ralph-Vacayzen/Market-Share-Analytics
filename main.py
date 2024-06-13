@@ -34,6 +34,21 @@ def Style_Negative_And_Positive_Values(value):
     color = '#C1E1C1' if value >= 0 else '#FAA0A0'
     return f'background-color: {color}'
 
+def Get_Actual_Adjustment(row):
+        match row.Type:
+            case 'Initial Load':
+                return row.Count
+            case 'New Inventory':
+                return row.Count
+            case 'Rental Location Change':
+                return row.Count
+            case 'Retire':
+                return row.Count * -1
+            case 'Sold':
+                return row.Count * -1
+            case _:
+                st.toast('Undefined type detected.')
+
 
 
 
@@ -77,12 +92,12 @@ with st.expander('Uploaded Files', expanded=True):
     
     file_descriptions = [
         ['SWBSA Market Share Analysis','Export_ExportRentalsByDay.csv','An SWBSA integraRental export, Rentals By Day.'],
-        ['Inventory Analysis','Inventory Adjustments.xlsx','An integraSoft database export, Inventory Adjustments.']
+        ['Inventory Analysis','Inventory Adjustments.csv','An integraSoft database export, Inventory Adjustments.']
     ]
 
     files = {
         'Export_ExportRentalsByDay.csv': None,
-        'Inventory Adjustments.xlsx': None
+        'Inventory Adjustments.csv': None
     }
 
 
@@ -185,7 +200,17 @@ def SWBSA_Analytics(swbsa):
 
 
 def Inventory_Analytics(inventory): #TODO
-    return
+    df               = inventory
+    df.columns       = ['Date','Product','Asset','Count','Type']
+    df.Date          = pd.to_datetime(df.Date).dt.date
+    df               = df.sort_values(['Date'])
+    df['Adjustment'] = df.apply(Get_Actual_Adjustment, axis=1)
+
+    l, r = st.columns(2)
+    inventory_p1_date = l.date_input('Period 1 Date', value=p1_end)
+    inventory_p2_date = r.date_input('Period 2 Date', value=p2_end)
+
+    st.dataframe(df, use_container_width=True)
 
     
 
@@ -202,7 +227,7 @@ if files['Export_ExportRentalsByDay.csv'] is not None:
         SWBSA_Analytics(swbsa)
 
 
-if files['Inventory Adjustments.xlsx'] is not None:
-    inventory = pd.read_csv(uploaded_files[files['Inventory Adjustments.xlsx']], index_col=False)
+if files['Inventory Adjustments.csv'] is not None:
+    inventory = pd.read_csv(uploaded_files[files['Inventory Adjustments.csv']], index_col=False)
     with st.expander('**Inventory Analysis**'):
         Inventory_Analytics(inventory)
