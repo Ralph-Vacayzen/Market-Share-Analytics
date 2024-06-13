@@ -11,6 +11,17 @@ import numpy as np
 
 
 
+st.set_page_config(page_title='Market-share Analytics', page_icon='📊', layout="wide", initial_sidebar_state="auto", menu_items=None)
+
+
+
+
+
+
+
+
+
+
 def Style_Uploaded_And_Nonuploaded_Files(filename):
         color = '#C1E1C1' if filename not in missing else '#FAA0A0'
         return f'background-color: {color}'
@@ -27,12 +38,6 @@ def Style_Negative_And_Positive_Values(value):
 
 
 
-
-
-
-
-
-st.set_page_config(page_title='Market-share Analytics', page_icon='📊', layout="wide", initial_sidebar_state="auto", menu_items=None)
 
 
 
