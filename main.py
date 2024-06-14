@@ -11,7 +11,7 @@ import numpy as np
 
 
 
-st.set_page_config(page_title='Market-share Analytics', page_icon='📊', layout="wide", initial_sidebar_state="auto", menu_items=None)
+st.set_page_config(page_title='Market Share Analytics', page_icon='📊', layout="wide", initial_sidebar_state="auto", menu_items=None)
 
 
 
@@ -209,10 +209,41 @@ def Inventory_Analytics(inventory): #TODO
     l, r = st.columns(2)
     inventory_p1_date = l.date_input('Period 1 Date', value=p1_end)
     inventory_p2_date = r.date_input('Period 2 Date', value=p2_end)
+    assets            = st.multiselect('Asset of Interest', df.Asset.unique())
 
-    st.dataframe(df, use_container_width=True)
+    p1_assets = {}
+    p2_assets = {}
 
+    def Get_Inventory_At_Date(row):
+        if row.Date <= inventory_p1_date:
+            if row.Asset in p1_assets.keys():
+                p1_assets[row.Asset] += row.Adjustment
+            else:
+                p1_assets[row.Asset]  = row.Adjustment
+        if row.Date <= inventory_p2_date:
+            if row.Asset in p2_assets.keys():
+                p2_assets[row.Asset] += row.Adjustment
+            else:
+                p2_assets[row.Asset]  = row.Adjustment
+        
+
+    df.apply(Get_Inventory_At_Date, axis=1)
+
+    p1_df = pd.DataFrame.from_dict(p1_assets, orient='index', columns=[str(inventory_p1_date)])
+    p2_df = pd.DataFrame.from_dict(p2_assets, orient='index', columns=[str(inventory_p2_date)])
+
+    idf   = pd.concat([p1_df, p2_df], axis=1)
+
+    def Get_Delta_In_Count(row):
+        return round(((row[str(inventory_p1_date)] - row[str(inventory_p2_date)]) / row[str(inventory_p1_date)]) * 100, 2)
     
+    idf['Delta %'] = idf.apply(Get_Delta_In_Count, axis=1)
+    idf = idf[idf.index.isin(assets)]
+
+    if assets != []:
+        st.dataframe(idf, use_container_width=True)
+        
+
 
 
 
