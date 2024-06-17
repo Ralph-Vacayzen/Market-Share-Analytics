@@ -93,14 +93,18 @@ with st.expander('Uploaded Files', expanded=True):
     file_descriptions = [
         ['SWBSA Market Share Analysis','Export_ExportRentalsByDay.csv','An SWBSA integraRental export, Rentals By Day.'],
         ['Inventory Analysis','Inventory Adjustments.csv','An integraSoft database export, Inventory Adjustments.'],
-        ['House Bike Analysis','Partner Program Register (PPR) - REGISTER.csv','An export from the Vacayzen Partner Progrom Register, REGISTER tab.']
+        ['House Bike Analysis','Partner Program Register (PPR) - REGISTER.csv','An export from the Vacayzen Partner Progrom Register, REGISTER tab.'],
+        ['Partner Add-On Analysis','Partner Sales.csv','An integraSoft database export, Partner Sales.'],
+        ['Route Analysis','dbo_RentalDispatchActivity.csv','An integraSoft database export, RentalDispatchActivity.']
 
     ]
 
     files = {
         'Export_ExportRentalsByDay.csv': None,
         'Inventory Adjustments.csv': None,
-        'Partner Program Register (PPR) - REGISTER.csv': None
+        'Partner Program Register (PPR) - REGISTER.csv': None,
+        'Partner Sales.csv': None,
+        'dbo_RentalDispatchActivity.csv': None
     }
 
 
@@ -312,6 +316,115 @@ def House_Bike_Analytics(house_bikes):
 
 
 
+def Partner_Addon_Analytics(partner_addons):
+    badSources        = ['integraRental', 'p-rgh.integrasoft.net', 'shop.vacayzen.com', 'shopcarillonbeach.vacayzen.com','shopad.vacayzen.com','p-dunevacations.integrasoft.net','p-royaldestinations.integrasoft.net']
+    df                = partner_addons
+    df                = df[~df.OriginSource.isin(badSources)]
+    df['PaymentDate'] = pd.to_datetime(df['PaymentDate']).dt.date
+    df                = df.sort_values(['PaymentDate'])
+
+    df1   = df[(p1_start <= df.PaymentDate) & (df.PaymentDate <= p1_end)]
+
+    df1_o = df1[['OriginSource','ID']]
+    df1_o = df1_o.drop_duplicates()
+    df1_o = df1_o.groupby(['OriginSource']).count()
+
+    df1_t = df1[['OriginSource','TransactionAmount']]
+    df1_t = df1_t.groupby(['OriginSource']).sum()
+
+    psdf_1  = pd.concat([df1_o, df1_t], axis=1)
+    psdf_1.columns = ['Period 1: Orders', 'Period 1: SUM Transactions']
+
+
+    df2  = df[(p2_start <= df.PaymentDate) & (df.PaymentDate <= p2_end)]
+
+    df2_o = df2[['OriginSource','ID']]
+    df2_o = df2_o.drop_duplicates()
+    df2_o = df2_o.groupby(['OriginSource']).count()
+
+    df2_t = df2[['OriginSource','TransactionAmount']]
+    df2_t = df2_t.groupby(['OriginSource']).sum()
+
+
+    psdf_2  = pd.concat([df2_o, df2_t], axis=1)
+    psdf_2.columns = ['Period 2: Orders', 'Period 2: SUM Transactions']
+
+    psdf = pd.concat([psdf_1, psdf_2], axis=1)
+    psdf = psdf.fillna(0)
+
+
+    def PS_Get_Difference_In_Orders(row):
+        return row['Period 1: Orders'] - row['Period 2: Orders']
+    
+    def PS_Get_Difference_In_Transactions(row):
+        return row['Period 1: SUM Transactions'] - row['Period 2: SUM Transactions']
+    
+    def PS_Get_Delta_In_Transactions(row):
+        if row['Period 1: SUM Transactions'] == 0: return 0
+        return round(((row['Period 1: SUM Transactions'] - row['Period 2: SUM Transactions']) / row['Period 1: SUM Transactions']) * 100, 2)
+    
+
+    psdf['Orders Difference']       = psdf.apply(PS_Get_Difference_In_Orders, axis=1)
+    psdf['Transactions Difference'] = psdf.apply(PS_Get_Difference_In_Transactions, axis=1)
+    psdf['Delta %']                 = psdf.apply(PS_Get_Delta_In_Transactions, axis=1)
+    psdf                            = psdf.sort_index()
+    
+    st.dataframe(psdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Delta %']).format("{:.0f}"), use_container_width=True)
+
+
+
+
+
+
+
+
+
+
+def Route_Analytics(routes):
+    df = routes
+    df.Disptach = pd.to_datetime(df.Dispatch).dt.date
+
+    df1 = df[(p1_start <= df.Disptach) & (df.Disptach <= p1_end)]
+    df2 = df[(p2_start <= df.Disptach) & (df.Disptach <= p2_end)]
+
+    p1_routes = len(df1.DeliveryResource.unique())
+    p1_stops  = len(df1.DeliverOrPickupToType)
+    p2_routes = len(df2.DeliveryResource.unique())
+    p2_stops  = len(df2.DeliverOrPickupToType)
+
+    results = {
+        f'{p1_start} - {p1_end}': {
+            'Routes': p1_routes,
+            'Stops':  p1_stops
+        },
+        f'{p2_start} - {p2_end}': {
+            'Routes': p2_routes,
+            'Stops':  p2_stops
+        }
+    }
+
+    rdf = pd.DataFrame.from_dict(results)
+
+    def Routes_Get_Difference(row):
+        return row[f'{p1_start} - {p1_end}'] - row[f'{p2_start} - {p2_end}']
+    
+    def Routes_Get_Delta(row):
+        return round(((row[f'{p1_start} - {p1_end}'] - row[f'{p2_start} - {p2_end}']) / row[f'{p1_start} - {p1_end}']) * 100, 2)
+    
+    rdf['Difference'] = rdf.apply(Routes_Get_Difference, axis=1)
+    rdf['Delta %']    = rdf.apply(Routes_Get_Delta, axis=1)
+    
+    st.dataframe(rdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Difference','Delta %']).format("{:.0f}"), use_container_width=True)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -331,3 +444,15 @@ if files['Partner Program Register (PPR) - REGISTER.csv'] is not None:
     house_bikes = pd.read_csv(uploaded_files[files['Partner Program Register (PPR) - REGISTER.csv']], index_col=False)
     with st.expander('**House Bike Analysis**'):
         House_Bike_Analytics(house_bikes)
+
+
+if files['Partner Sales.csv'] is not None:
+    partner_addons = pd.read_csv(uploaded_files[files['Partner Sales.csv']], index_col=False)
+    with st.expander('**Partner Add-on Analysis**'):
+        Partner_Addon_Analytics(partner_addons)
+
+
+if files['dbo_RentalDispatchActivity.csv'] is not None:
+    routes = pd.read_csv(uploaded_files[files['dbo_RentalDispatchActivity.csv']], index_col=False)
+    with st.expander('**Route Analysis**'):
+        Route_Analytics(routes)
