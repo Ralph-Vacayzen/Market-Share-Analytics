@@ -303,7 +303,7 @@ def House_Bike_Analytics(house_bikes):
         return round(((row[f'{p1_start} - {p1_end}'] - row[f'{p2_start} - {p2_end}']) / row[f'{p1_start} - {p1_end}']) * 100, 2)
     
     hbdf['Difference'] = hbdf.apply(HB_Get_Difference_In_Count, axis=1)
-    hbdf['Delata %']   = hbdf.apply(HB_Get_Delta_In_Count, axis=1)
+    hbdf['Delta %']   = hbdf.apply(HB_Get_Delta_In_Count, axis=1)
 
     st.dataframe(hbdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Difference','Delta %']).format("{:.0f}"), use_container_width=True)
 
