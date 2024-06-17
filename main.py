@@ -369,7 +369,7 @@ def Partner_Addon_Analytics(partner_addons):
     psdf['Delta %']                 = psdf.apply(PS_Get_Delta_In_Transactions, axis=1)
     psdf                            = psdf.sort_index()
     
-    st.dataframe(psdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Delta %']).format("{:.0f}"), use_container_width=True)
+    st.dataframe(psdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Orders Difference','Transactions Difference','Delta %']).format("{:.0f}"), use_container_width=True)
 
 
 
