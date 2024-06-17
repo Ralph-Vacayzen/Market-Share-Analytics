@@ -31,8 +31,8 @@ def Get_Dates_From_Range(row):
         return set(map(lambda x: pd.to_datetime(x).date(), dates))
 
 def Style_Negative_And_Positive_Values(value):
-    color = '#C1E1C1' if value >= 0 else '#FAA0A0'
-    return f'background-color: {color}'
+    if   value > 0: return 'background-color: #C1E1C1'
+    elif value < 0: return 'background-color: #FAA0A0'
 
 def Get_Actual_Adjustment(row):
         match row.Type:
@@ -59,7 +59,7 @@ def Get_Actual_Adjustment(row):
 
 
 st.caption('VACAYZEN')
-st.title('Market-share Analytics')
+st.title('Market Share Analytics')
 st.info('Analysis of business areas to determine change in market share.')
 
 
@@ -92,12 +92,15 @@ with st.expander('Uploaded Files', expanded=True):
     
     file_descriptions = [
         ['SWBSA Market Share Analysis','Export_ExportRentalsByDay.csv','An SWBSA integraRental export, Rentals By Day.'],
-        ['Inventory Analysis','Inventory Adjustments.csv','An integraSoft database export, Inventory Adjustments.']
+        ['Inventory Analysis','Inventory Adjustments.csv','An integraSoft database export, Inventory Adjustments.'],
+        ['House Bike Analysis','Partner Program Register (PPR) - REGISTER.csv','An export from the Vacayzen Partner Progrom Register, REGISTER tab.']
+
     ]
 
     files = {
         'Export_ExportRentalsByDay.csv': None,
-        'Inventory Adjustments.csv': None
+        'Inventory Adjustments.csv': None,
+        'Partner Program Register (PPR) - REGISTER.csv': None
     }
 
 
@@ -199,7 +202,7 @@ def SWBSA_Analytics(swbsa):
 
 
 
-def Inventory_Analytics(inventory): #TODO
+def Inventory_Analytics(inventory):
     df               = inventory
     df.columns       = ['Date','Product','Asset','Count','Type']
     df.Date          = pd.to_datetime(df.Date).dt.date
@@ -234,15 +237,75 @@ def Inventory_Analytics(inventory): #TODO
 
     idf   = pd.concat([p1_df, p2_df], axis=1)
 
+    def Get_Difference_In_Count(row):
+        return row[str(inventory_p1_date)] - row[str(inventory_p2_date)]
+    
     def Get_Delta_In_Count(row):
         return round(((row[str(inventory_p1_date)] - row[str(inventory_p2_date)]) / row[str(inventory_p1_date)]) * 100, 2)
     
+    idf['Difference'] = idf.apply(Get_Difference_In_Count, axis=1)
     idf['Delta %'] = idf.apply(Get_Delta_In_Count, axis=1)
     idf = idf[idf.index.isin(assets)]
 
     if assets != []:
-        st.dataframe(idf, use_container_width=True)
+        st.dataframe(idf.style.applymap(Style_Negative_And_Positive_Values, subset=['Difference']).format("{:.0f}"), use_container_width=True)
         
+
+
+
+
+
+
+
+
+
+def House_Bike_Analytics(house_bikes):
+    df          = house_bikes
+    df          = df[['PARTNER','UNIT CODE','NAME','AREA','ADDRESS','ORDER #','# OF BIKES','BIKE TYPE','BIKE START DATE','BIKE END DATE']]
+    df.columns  = ['Partner','Unit','Name','Area','Address','Order','Count','Type','Start','End']
+    df          = df[df.Count > 0]
+    df['Start'] = pd.to_datetime(df['Start']).dt.date
+    df['End']   = df['End'].fillna(pd.to_datetime('12/31/2099', errors='coerce'))
+    df['End']   = pd.to_datetime(df['End']).dt.date
+
+    df1 = df[
+        ((df.Start <= p1_start) & ((p1_start <= df.End) & (df.End <= p1_end))) |
+        (((p1_start <= df.Start) & (df.Start <= p1_end)) & ((p1_start <= df.End) & (df.End <= p1_end))) |
+        (((p1_start <= df.Start) & (df.Start <= p1_end)) & (p1_end <= df.End)) |
+        ((df.Start <= p1_start) & (p1_end <= df.End))
+        ]
+    
+    df1 = df1.groupby('Partner').sum(numeric_only=True)
+    df1 = df1[['Count']]
+    df1.columns = [f'{p1_start} - {p1_end}']
+
+    df2 = df[
+        ((df.Start <= p2_start) & ((p2_start <= df.End) & (df.End <= p2_end))) |
+        (((p2_start <= df.Start) & (df.Start <= p2_end)) & ((p2_start <= df.End) & (df.End <= p2_end))) |
+        (((p2_start <= df.Start) & (df.Start <= p2_end)) & (p2_end <= df.End)) |
+        ((df.Start <= p2_start) & (p2_end <= df.End))
+        ]
+    
+    df2 = df2.groupby('Partner').sum(numeric_only=True)
+    df2 = df2[['Count']]
+    df2.columns = [f'{p2_start} - {p2_end}']
+
+    hbdf = pd.concat([df1, df2], axis=1)
+
+    def HB_Get_Difference_In_Count(row):
+        return row[f'{p1_start} - {p1_end}'] - row[f'{p2_start} - {p2_end}']
+    
+    def HB_Get_Delta_In_Count(row):
+        return round(((row[f'{p1_start} - {p1_end}'] - row[f'{p2_start} - {p2_end}']) / row[f'{p1_start} - {p1_end}']) * 100, 2)
+    
+    hbdf['Difference'] = hbdf.apply(HB_Get_Difference_In_Count, axis=1)
+    hbdf['Delata %']   = hbdf.apply(HB_Get_Delta_In_Count, axis=1)
+
+    st.dataframe(hbdf.style.applymap(Style_Negative_And_Positive_Values, subset=['Difference']).format("{:.0f}"), use_container_width=True)
+
+
+
+
 
 
 
@@ -262,3 +325,9 @@ if files['Inventory Adjustments.csv'] is not None:
     inventory = pd.read_csv(uploaded_files[files['Inventory Adjustments.csv']], index_col=False)
     with st.expander('**Inventory Analysis**'):
         Inventory_Analytics(inventory)
+
+
+if files['Partner Program Register (PPR) - REGISTER.csv'] is not None:
+    house_bikes = pd.read_csv(uploaded_files[files['Partner Program Register (PPR) - REGISTER.csv']], index_col=False)
+    with st.expander('**House Bike Analysis**'):
+        House_Bike_Analytics(house_bikes)
